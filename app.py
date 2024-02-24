@@ -1,4 +1,4 @@
-from flask import Flask,request,jsonify,redirect ,session ,url_for 
+from flask import Flask,request,jsonify,redirect ,session ,url_for  ,make_response
 from flask_jwt_extended import JWTManager,jwt_required,create_access_token ,get_jwt_identity,get_current_user
 from pymongo import MongoClient
 
@@ -7,6 +7,8 @@ from flask_cors import CORS
 import os
 import json
 import requests
+import re
+import bson
 from dotenv import  load_dotenv
 load_dotenv()
 
@@ -72,7 +74,7 @@ def login():
 
             kname = login_user['first_name']+" "+login_user['last_name']
             session['is_login'] = True
-            return jsonify(message = 'Login Successful',access_token = access_token ,email = email ,name = kname)
+            return jsonify(message = 'Login Successful',access_token = access_token ,email = email ,name = kname )
         else:
             return  jsonify({'Message':'Invalid email and password'}),401
 
@@ -105,20 +107,9 @@ def google_login():
 def create_dish():
     
     user_info = get_jwt_identity()
-    
+
     login_user = db.AllUser.find_one({'email':user_info},{'first_name':1 ,'last_name':1})
-
     kname = login_user['first_name']+" "+login_user['last_name']
-
-    #dish_name =  request.form.get('name')
-    #veg_non_veg = request.form.get('veg_non_veg')
-   # description = request.form.get('description')
-
-    #pop_state = request.form.get('popularity_state')
-
-    #cuisine = request.form.get('cuisine')
-    #kitchen_equi = request.form.get('kitchen_equipments')
-    #course_type= request.form.get('course_type')
 
     temp = request.get_json()
     instructions = request.get_json()
@@ -150,33 +141,9 @@ def myAccount():
     user_info = get_jwt_identity()   
     login_user = db.AllUser.find_one({'email':user_info},{'first_name':1 ,'last_name':1})
     name = login_user['first_name']+" " +login_user['last_name']
-    '''
-    if filterCuisine =="Indian" or filterCuisine == "Chinese":
-        dis = db.Dish.find({"created_by":name ,"Cuisine":filterCuisine,"email":user_info})
-        
-        output =[]
-        for dish in dis:
-            dish_data = {
-                "id":str(dish['_id']),
-                "name" :dish['dish_name'],
-                "cuisine":dish['Cuisine'],
-                "veg_non":dish['veg_non_veg'],
-                "course_type":dish['courses'],
-                "Created_date":dish['Created_date'],
-                "Created_time":dish['Created_time'],
-                "description":dish['description']   
-            }
-            output.append(dish_data)
-
-        print("heello 8")
-        return jsonify(output)
     
-    else:
-    
-    '''
     All_dis = db.Dish.find({'email':user_info})
     output3  =[]
-
     for dish in All_dis:
         dish_data = {
                 "id":str(dish['_id']),
@@ -193,15 +160,58 @@ def myAccount():
     return jsonify(output3)
     
 
+@app.route('/api/search' ,methods =['GET','POST'])
+def search():
+    query = request.get_json()
+    sea = query
+    final  = sea["query"]
+    print(final)
+    All_dishes = db.Dish.find({"dish_name": {"$regex": final ,"$options":"i"}})
+    output =[]
+    for dish in All_dishes:
+        dish1 ={
+            
+            "name" :dish['dish_name'],
+            "cuisine":dish['Cuisine'],
+            "veg_non_veg":dish['veg_non_veg'],
+            "course":dish['courses'],
+            "created_date":dish['Created_date'],
+            "created_time":dish['Created_time'],
+            "description":dish['description'],
+            "cooking_time":dish["cooking_time"],
+            #"indegrients":dish['indegrients'],
+            #"instructions":dish['instructions'],
+            "kitchen_equipments":dish["kitchen_equipments"],
+            "popularity_state":dish["popularity_state"]
+        }
+        output.append(dish1)
+    return jsonify(output)
 
-@app.route('/api/dish/filter/<string:id>/id/',methods =['GET'])
+
+
+@app.route('/api/dish/<id>',methods =['GET'])
 @jwt_required()
 def  filter_by_id(id):
 
-    dishes = db.Dish.find({'_id':id})
+    dish = db.Dish.find_one({'_id':bson.ObjectId(oid=id)})
+    dish_data = {
+               
+            "name" :dish['dish_name'],
+            "cuisine":dish['Cuisine'],
+            "veg_non_veg":dish['veg_non_veg'],
+            "course":dish['courses'],
+            "created_date":dish['Created_date'],
+            "created_time":dish['Created_time'],
+            "description":dish['description'],
+            "cooking_time":dish["cooking_time"],
+            "indegrients":dish['indegrients'],
+            "instructions":dish['instructions'],
+            "kitchen_equipments":dish["kitchen_equipments"],
+            "popularity_state":dish["popularity_state"]     
+    }
+    return dish_data
 
-    return jsonify(dishes)
-
+        
 @app.route('/show')
 @jwt_required()
 def show():
