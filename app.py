@@ -153,7 +153,9 @@ def myAccount():
                 "course_type":dish['courses'],
                 "created_date":dish['Created_date'],
                 "created_time":dish['Created_time'],
-                "description":dish['description']   
+                "description":dish['description'],
+                "cooking_time":dish["cooking_time"], 
+                "popularity_state":dish["popularity_state"]
         }
         output3.append(dish_data)
 
@@ -177,6 +179,7 @@ def search():
             "course":dish['courses'],
             "created_date":dish['Created_date'],
             "created_time":dish['Created_time'],
+            "created_by":dish['created_by'],
             "description":dish['description'],
             "cooking_time":dish["cooking_time"],
             #"indegrients":dish['indegrients'],
@@ -227,7 +230,7 @@ def contact():
     name = data['name']
     email = data['email']
     message =data['message']
-
+    print("ip",request.remote_addr)
     db.Contact.insert_one({'name':name,'email':email ,'message':message})
 
     return jsonify({"Message":"Message submitted succesfully"})
