@@ -1,17 +1,17 @@
 from flask import Flask,request,jsonify,redirect ,session ,url_for  ,make_response
 from flask_jwt_extended import JWTManager,jwt_required,create_access_token ,get_jwt_identity,get_current_user
 from pymongo import MongoClient
-
+from flask_dance.contrib.google import make_google_blueprint, google
 from gridfs import GridFS
 from flask_cors import CORS
 import os
 import json
 import requests
 import re
+import urllib.parse
 import bson
 from dotenv import  load_dotenv
 load_dotenv()
-
 from pathlib import Path
 from datetime import datetime,timedelta
 
@@ -19,11 +19,12 @@ load_dotenv()
 #from authlib.integrations.flask_client import OAuth
 import datetime 
 app  = Flask(__name__)
-CORS(app, origins='http://localhost:5173', supports_credentials=True)
+CORS(app, origins=os.getenv('FRONTEND_URL'), supports_credentials=True)
+
 
 app.secret_key = os.urandom(12)
 
-
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
@@ -32,20 +33,55 @@ jwt = JWTManager(app)
 client = MongoClient('mongodb://localhost:27017/')
 db = client['AI_database']
 
+
+app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
+app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET')
+
+google_blueprint = make_google_blueprint(
+    client_id=os.getenv('GOOGLE_OAUTH_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_OAUTH_CLIENT_SECRET'),
+    scope=["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile", "openid"]
+)
+app.register_blueprint(google_blueprint, url_prefix="/login")
+
+@app.route("/")
+def index():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    return redirect(url_for("google_callback"))
+
+@app.route("/callback")
+def google_callback():
+    if not google.authorized:
+        return jsonify({"error": "Failed to log in."}),  400
+    resp = google.get("/oauth2/v1/userinfo")
+    assert resp.ok, resp.text
+    user_info = resp.json()
+
+    exist_user = db.AllUser.find_one({'email':user_info['email']},{'first_name':1})
+
+    if (not exist_user):
+        db.AllUser.insert_one({'first_name':user_info['given_name'] ,'last_name': user_info['family_name'],'email':user_info['email']})
+
+    token = create_access_token(identity=user_info['email'])
+    
+    user_info['access_token'] = token
+    
+    user_info_str = urllib.parse.quote(json.dumps(user_info))
+    
+    return redirect(f"{os.getenv('FRONTEND_URL')}/login?data={user_info_str}", code=302)
+
 @app.route('/chef/signup' ,methods =['POST'])
 def sign_up():
 
     if request.method  == 'POST':
         data = request.get_json()
-
         first_name = data.get('first_name')
         last_name = data.get('last_name')
         email = data.get('email')
         password = data.get('password')
         password_repeat= data.get('password_repeat')
         
-
-
         exist_user  =db.AllUser.find_one({'email':email},{'first_name':1})
         print(first_name)
 
