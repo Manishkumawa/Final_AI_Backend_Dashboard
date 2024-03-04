@@ -3,7 +3,7 @@ from flask_jwt_extended import JWTManager,jwt_required,create_access_token ,get_
 from pymongo import MongoClient
 from flask_dance.contrib.google import make_google_blueprint, google
 from gridfs import GridFS
-from flask_cors import CORS
+from flask_cors import CORS ,cross_origin
 import os
 import json
 import requests
@@ -30,7 +30,7 @@ app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
-client = MongoClient('mongodb://localhost:27017/')
+client = MongoClient(os.getenv('MONGODB_URL'))
 db = client['AI_database']
 
 
@@ -212,7 +212,7 @@ def search():
             "name" :dish['dish_name'],
             "cuisine":dish['Cuisine'],
             "veg_non_veg":dish['veg_non_veg'],
-            "course":dish['courses'],
+            "courses":dish['courses'],
             "created_date":dish['Created_date'],
             "created_time":dish['Created_time'],
             "created_by":dish['created_by'],
@@ -238,7 +238,7 @@ def  filter_by_id(id):
             "name" :dish['dish_name'],
             "cuisine":dish['Cuisine'],
             "veg_non_veg":dish['veg_non_veg'],
-            "course":dish['courses'],
+            "courses":dish['courses'],
             "created_date":dish['Created_date'],
             "created_time":dish['Created_time'],
             "description":dish['description'],
@@ -266,14 +266,14 @@ def contact():
     name = data['name']
     email = data['email']
     message =data['message']
-    print("ip",request.remote_addr)
+    
     db.Contact.insert_one({'name':name,'email':email ,'message':message})
 
-    return jsonify({"Message":"Message submitted succesfully"})
+    return jsonify({"Message":"Message submitted succesfully"}),200
 
 
 
 
 if __name__ =="__main__":
-    app.run(debug= True)
+    app.run(debug= False)
     
